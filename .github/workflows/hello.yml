@@ -1,6 +1,29 @@
+# Github Actionsとは？
+# Github組み込みのCI/CDシステムのこと
+# Githubにpushしたらビルド、テスト、デプロイといった一連のフローを自動実行できる
+
+# Github Actionsの用途はCI/CDだけに留まらない
+# Githubで起こる様々なイベントにフックして自動で処理を実行できる
+# 例えば以下のようなイベントと自動化された処理を実装できる
+# ・issueが飛ばされたときに、担当者を自動で割り当てる
+# ・プルリクが作成されたときにslackに通知を飛ばす
+
+# 歴史
+# ・2018年のGithub Universe（Github最大のコミュニティイベント）でベータ版が限定公開
+# ・2019年8月に大幅なリニューアル
+#   - 変更の背景としてGitHub社がMicrosoftに買収されたことがある
+#   - コンセプト面でCI/CDを全面的に押し出すようになった（当初は単にワークフローの自動化のためのシステムだった）
+#   - MacOS, WindowsOSに対応（当初はLinuxのみ）
+#   - configファイルがHCLからYAML形式に変更（HCLはIaCツールのTerraformと同じ拡張子）
+
 # on pushでGithubのubuntu仮想環境でHello, Worldを出力する
 name: Hello, World!
-on: push
+run-name: ${{ github.actor }} created workflow "Hello, World!"
+on:
+  push:
+    branches:
+      - "master"
+    # branches: [master]
 
 jobs:
   build:
