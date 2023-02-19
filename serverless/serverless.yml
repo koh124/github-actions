@@ -14,6 +14,17 @@ provider:
   stage: dev
   region: ap-northeast-1
 
+  # you can add statements to the Lambda function's IAM Role here
+  # LambdaにCloudFrontの権限を与える
+  iam:
+    role:
+      statements:
+        - Effect: "Allow"
+          Action:
+            - "cloudfront:ListDistributions"
+            - "cloudfront:CreateInvalidation"
+          Resource: arn:aws:cloudfront::067625212445:distribution/E1YCQXARB1OVWZ
+
 plugins:
   - serverless-s3-sync
 
@@ -24,6 +35,36 @@ custom:
     # アップロードするローカルのディレクトリを指定
     - bucketName: hogehogehoges3bucket2023
       localDir: static
+
+functions:
+  clearCache:
+    handler: handler.lambdaHandler
+    events:
+      - s3:
+          bucket: hogehogehoges3bucket2023
+          event: "s3:ObjectCreated:*"
+          # ↓こちらの指定は正しくない
+          # event: "s3:*"
+
+          # rulesは特定のファイル名のオブジェクトのときだけLambdaを起動できる
+          # Lambdaで判定しても良いのだが、あちらは起動回数に応じて料金がかかるので
+          # prefixはファイル名の一部
+          # suffixは拡張子を指定できる
+          # rules:
+          #   - prefix: images/
+          #   - suffix: .html
+
+          # すでに存在するバケットを対象にする場合は指定する
+          # （デフォルトではバケットが新しく作成されてしまう？）
+          existing: true
+
+# 【s3で使用できるイベント例】
+# s3:ObjectCreated:* オブジェクト作成
+# s3:ObjectRemoved:* オブジェクト削除
+# s3:ObjectRestore:* Glacierから復元（開始、完了）
+# s3:LifecycleExpiration:* ライフサイクル設定でオブジェクトを削除
+# s3:ObjectTagging:* オブジェクトにタグ追加・削除
+# s3:ObjectACL:PUT オブジェクトのACL設定が変更
 
 resources:
   Resources:
