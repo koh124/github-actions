@@ -14,43 +14,97 @@ provider:
   stage: dev
   region: ap-northeast-1
 
-# iam:
-#   role:
-#     statements:
-#       - Effect: "Allow"
-#         Action:
-#           - "s3:ListBucket"
-#         Resource: { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "ServerlessDeploymentBucket" } ] ]  }
-#       - Effect: "Allow"
-#         Action:
-#           - "s3:PutObject"
-#         Resource:
-#           Fn::Join:
-#             - ""
-#             - - "arn:aws:s3:::"
-#               - "Ref" : "ServerlessDeploymentBucket"
-#               - "/*"
-
 plugins:
   - serverless-s3-sync
+
+custom:
+  # webSiteName: s3-static-site-hosting.com
+  s3Sync:
+    # 静的アセットをアップロードするバケットの指定
+    # アップロードするローカルのディレクトリを指定
+    - bucketName: hogehogehoges3bucket2023
+      localDir: static
 
 resources:
   Resources:
     MyS3Bucket:
       Type: AWS::S3::Bucket
       Properties:
-        BucketName: hogehogehogemys3bucket2023
+        BucketName: hogehogehoges3bucket2023
         # パブリックアクセスでバケットを作成する
         AccessControl: PublicRead
-
         # 静的ホスティングした際のドキュメントルート
         WebsiteConfiguration:
           IndexDocument: index.html
           # ErrorDocument: error.html
 
-custom:
-  s3Sync:
-    # 静的アセットをアップロードするバケットの指定
-    # アップロードするローカルのディレクトリを指定
-    - bucketName: hogehogehogemys3bucket2023
-      localDir: static
+    # バケットポリシーの記述
+    StaticSiteHostingS3BucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        Bucket:
+          # 定義済みのバケットを参照する
+          Ref: MyS3Bucket
+        PolicyDocument:
+          # バケットポリシーのバージョンの指定は固定
+          Version: '2012-10-17'
+          Statement:
+            # Sidは任意で割り当てることができるが、ポリシー内で重複してはいけない
+            - Sid: PublicReadGetPutObject
+              Effect: Allow
+              Principal: "*"
+              Action:
+                - "s3:GetObject"
+                # - "s3:PutObject"
+              Resource: arn:aws:s3:::hogehogehoges3bucket2023/*
+
+# S3でwebサイトを静的ホスティングするには？
+# 最低限の設定だと、以下のようにする
+# ・バケットのアクセス許可設定をパブリックアクセスにする
+# ・バケットポリシーを追記する
+# {
+#     "Version": "2012-10-17",
+#     "Statement": [
+#         {
+#             "Sid": "myBucketPolicyStatementId",
+#             "Effect": "Allow",
+#             "Principal": {
+#                 "AWS": "*"
+#             },
+#             "Action": "s3:*",
+#             "Resource": "arn:aws:s3:::hogehogehoges3bucket2023/*"
+#         }
+#     ]
+# }
+# 権限には以下のようなものもある
+# "s3:GetObject"
+# "s3:PutObject"
+# "s3:DeleteObject"
+# その他の設定（マネジメントコンソール）
+# ・バケットのバージョニングを有効にする
+# ・デフォルトの暗号化→サーバー側の暗号化を有効にする
+# ・暗号化キータイプをAmazon S3キー(SSE-S3)にする
+# 【注意】
+# ・静的ウェブサイトホスティングの有効化と、
+#   アクセス許可設定でパブリックアクセスの許可だけでは、
+#   エンドポイントにアクセスできない(403 Forbiddenとなる)
+# ・上記に加えてバケットポリシーに適切な記述をすることでS3のURLにアクセスできるようになる
+# ・S3のバケットポリシーはデフォルトで全拒否になっている
+# ・バケットのバージョニングを有効にしていると、バケットを削除することができなくなる
+#   CloudFormationスタックも削除できなくなる
+# 【問題】
+# 初めにパブリックアクセスのみだとindex.htmlを開くことはできたが、cssの読み込みがされていなかった
+# 静的ウェブサイトホスティング用のバケットウェブサイトエンドポイントへのアクセスは403エラーで権限がないのでアクセスできなかった
+# だが、バケットポリシーを追記したらindex.html単体を開いてスタイルが適用されていることが確認できた
+# もちろん静的ホスティングのエンドポイントにもアクセスできた
+# そこまではいいのだが、バケットポリシーを削除したら今度はindex.htmlのスタイルが適用されていた
+# 静的ホスティングのエンドポイントはちゃんとアクセスできないようになっていた
+# 最初にindex.htmlのスタイルが適用されなかった原因がよくわからない
+# 【解決】
+# バケットポリシーを削除してから反映が遅れていただけだった
+# やはりパブリックアクセスの許可だけだと基本的にリソース（style.css）の取得ができない
+# index.htmlやstyle.cssを開いてオブジェクトURLにアクセスしても
+# "This XML file does not appear to have any style information associated with it. The document tree is shown below."
+# と表示されアクセスできないようになっている
+# また、index.htmlなどのリソースをコンソール画面から開くを押して閲覧できるが、
+# あれは一時的に発行されるURLですぐに閲覧できなくなる
