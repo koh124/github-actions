@@ -31,14 +31,38 @@ resources:
       Type: AWS::S3::Bucket
       Properties:
         BucketName: hogehogehoges3bucket2023
-        # パブリックアクセスでバケットを作成する
-        AccessControl: PublicRead
+
+        # パブリックアクセスでバケットを作成する場合
+        # AccessControl: PublicRead
+
+        # パブリックアクセスをすべてブロックにする
+        AccessControl: Private
+
+        # ブロックパブリックアクセスを個別に設定する場合
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+
+        # バージョニングの有効化
+        VersioningConfiguration:
+          Status: Enabled
+
+        # バケットの暗号化を設定
+        # 暗号化キーをAmazon S3 マネージドキー(SSE-S3)に設定
+        BucketEncryption:
+          ServerSideEncryptionConfiguration:
+            - ServerSideEncryptionByDefault:
+                SSEAlgorithm: AES256
+
         # 静的ホスティングした際のドキュメントルート
         WebsiteConfiguration:
           IndexDocument: index.html
           # ErrorDocument: error.html
 
     # バケットポリシーの記述
+    # 静的ホスティングできるようになる
     StaticSiteHostingS3BucketPolicy:
       Type: AWS::S3::BucketPolicy
       Properties:

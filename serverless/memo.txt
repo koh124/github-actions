@@ -1,0 +1,24 @@
+CloudFront Distribution
+・S3とAPIGatewayが持つURLを1つに統合することができる
+・すなわち、
+https://APIGateway.com/api/user
+https://mys3bucket.com/index.html
+これに対して
+https://cloudfront/api/user
+https://cloudfront/index.html
+このようにURLを統合することができる
+・リクエスト転送先ドメインにS3を指定する
+・S3へのアクセスをCloudFront経由のみに限定することができる
+・httpリクエストをhttpsにリダイレクトできる
+
+CloudFrontディストリビューションの作成
+・S3の静的ホスティングエンドポイントをオリジンドメインに指定
+・カスタムヘッダーにはおそらくapiKeyが入る（APIGatewayのみか？）
+・ビューワーでRedirect HTTP to HTTPSにする
+
+CloudFrontの仕様
+・S3をオリジンドメインに設定すると、S3のキャッシュサーバーとして機能する
+・キャッシュサーバーなので、ディストリビューションを作成すると（＋キャッシュのTTLを過ぎると）S3のオブジェクトがキャッシュされる。
+  実際にS3のindex.htmlを更新してみると、S3から開くと最新が表示されるのに、CloudFrontのURLでは更新されていないことが確認できた。
+・CloudFrontのキャッシュ削除タブからキャッシュ削除を作成をクリックし、
+  オブジェクトパスに/*を指定することでS3のすべてのオブジェクトのキャッシュをクリアすることができる
