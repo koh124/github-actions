@@ -21,7 +21,9 @@ name: Hello, World!
 run-name: ${{ github.actor }} created workflow "Hello, World!"
 on:
   push:
-    branches: [master]
+    # branches: [master]
+    branches:
+      - "master"
 
 jobs:
   build:
