@@ -1,0 +1,39 @@
+# yamlとは？
+# 構造化されたデータを表現するための書式
+# CloudFormation, docker-compose, CircleCI, ansibleなど、ツールの設定によく使われる
+# JSONと比較してより人間が読みやすくなっている
+
+# yamlだとコメントが使える
+
+# スカラー型
+# string
+# integer, float
+# boolean: true false | yes no
+# null: null | ~
+# date: yyyy-mm-dd
+
+# 配列
+Item
+- "data1"
+- "data2"
+- "data3"
+# &（アンカー）と＊（エイリアス）
+# common: &common
+#   aaa: 1111
+#   bbb: 2222
+
+# dev:
+#   build: *common
+#   environment: aaa
+
+# 改行を入れる
+# test: |
+#   aaa
+#   bbb
+#   ccc
+
+# 最後の行だけ改行させる
+# test: >
+#   aaa
+#   bbb
+#   ccc
