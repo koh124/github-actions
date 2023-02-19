@@ -6,8 +6,18 @@ jobs:
     name: Unit test
     runs-on: ubuntu-latest
     steps:
+        # checkoutで仮想環境に自分のリポジトリをコピーして
+        # setup-nodeでNode.js実行環境をインストールして
+        # 以降npmコマンドが使えるようになる感じ？
+
+        # 以下のリポジトリのgithub actionsを使用する
+        # https://github.com/actions/checkout
+        # $GITHUB_WORKSPACE環境に自分のリポジトリをチェックアウトしてくれる
       - name: Checkout
         uses: actions/checkout@v3.0.0
+        # 以下のリポジトリのgithub actionsを使用する
+        # https://github.com/actions/setup-node
+        # 指定したNode.jsのバージョンのインストールとパスへの追加を行ってくれる
       - name: Set Node.js 18.x
         uses: actions/setup-node@v3.0.0
         with:
