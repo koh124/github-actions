@@ -1,0 +1,10 @@
+# on pushでGithubのubuntu仮想環境でHello, Worldを出力する
+name: Hello, World!
+on: push
+
+jobs:
+  build:
+    name: greeting
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Hello, World!"
