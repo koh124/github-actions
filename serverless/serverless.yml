@@ -1,0 +1,56 @@
+# 【ServerlessFrameworkでS3静的ホスティングを設定する】
+# ServerlessFrameworkにはファイルをS3にアップロードする機能が標準で備わっていない
+# したがって、pluginを使用する
+# （グローバルインストールでよい）
+# npm install -g serverless-s3-sync
+# serverless plugin install --name serverless-s3-sync
+
+service: serverless-s3-deploy-sample
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: python3.9
+  stage: dev
+  region: ap-northeast-1
+
+# iam:
+#   role:
+#     statements:
+#       - Effect: "Allow"
+#         Action:
+#           - "s3:ListBucket"
+#         Resource: { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "ServerlessDeploymentBucket" } ] ]  }
+#       - Effect: "Allow"
+#         Action:
+#           - "s3:PutObject"
+#         Resource:
+#           Fn::Join:
+#             - ""
+#             - - "arn:aws:s3:::"
+#               - "Ref" : "ServerlessDeploymentBucket"
+#               - "/*"
+
+plugins:
+  - serverless-s3-sync
+
+resources:
+  Resources:
+    MyS3Bucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: hogehogehogemys3bucket2023
+        # パブリックアクセスでバケットを作成する
+        AccessControl: PublicRead
+
+        # 静的ホスティングした際のドキュメントルート
+        WebsiteConfiguration:
+          IndexDocument: index.html
+          # ErrorDocument: error.html
+
+custom:
+  s3Sync:
+    # 静的アセットをアップロードするバケットの指定
+    # アップロードするローカルのディレクトリを指定
+    - bucketName: hogehogehogemys3bucket2023
+      localDir: static
