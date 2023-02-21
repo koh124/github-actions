@@ -3,7 +3,7 @@ import json
 import time
 
 cloudfront = boto3.client('cloudfront')
-DISTRIBUTION_ID = 'E1YCQXARB1OVWZ'
+DISTRIBUTION_ID = 'E2VW1LNFW3XLLZ'
 Items = ['/*']
 
 # cloudfrontのキャッシュを削除

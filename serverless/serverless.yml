@@ -1,9 +1,47 @@
 # 【ServerlessFrameworkでS3静的ホスティングを設定する】
 # ServerlessFrameworkにはファイルをS3にアップロードする機能が標準で備わっていない
 # したがって、pluginを使用する
-# （グローバルインストールでよい）
-# npm install -g serverless-s3-sync
+# npm install -D serverless-s3-sync
 # serverless plugin install --name serverless-s3-sync
+
+# 【デプロイ時にCloudFrontのキャッシュクリアをする】
+# ・pluginを使う場合
+# npm install -D serverless-cloudfront-invalidate
+# ・Lambdaを使う場合
+# ObjectCreateイベント等で処理を書く
+# デプロイ時のs3-syncによるローカルディレクトリのコピーで発火することを確認済み
+
+# 【デプロイ手順】
+# 1. s3をパブリックアクセスでデプロイ
+# 2. cloudfrontディストリビューションを作成する
+# 3. cloudfront functionsにbasic認証を導入する関数を登録
+# function handler(event) {
+#   var authUser = 'mykey';
+#   var authPass = 'kohei';
+
+#   var authString = 'Basic ' + (authUser + ':' + authPass).toString('base64');
+
+#   var request = event.request;
+#   var headers = request.headers;
+
+#   if (
+#     typeof headers.authorization === "undefined" ||
+#     headers.authorization.value !== authString
+#   ) {
+#     return {
+#       statusCode: 401,
+#       statusDescription: "Unauthorized",
+#       headers: { "www-authenticate": { value: 'Basic realm="please"' } }
+#     };
+#   }
+
+#   return request;
+# }
+# 4. cloudfrontディストリビューションのビヘイビアを設定して
+#    ビューワーリクエストにcloudfront functionsを関連づける
+# 5. デプロイ時にキャッシュクリア用のLambdaが実行されるようにする
+#    hander.pyのDISTRIBUTION_IDと, .ymlのIAMロールのarnを指定のディストリビューションのものにする
+# 6. インフラの構成管理を目標にする
 
 service: serverless-s3-deploy-sample
 frameworkVersion: '3'
@@ -23,10 +61,11 @@ provider:
           Action:
             - "cloudfront:ListDistributions"
             - "cloudfront:CreateInvalidation"
-          Resource: arn:aws:cloudfront::067625212445:distribution/E1YCQXARB1OVWZ
+          Resource: arn:aws:cloudfront::067625212445:distribution/E2VW1LNFW3XLLZ
 
 plugins:
   - serverless-s3-sync
+  # - serverless-cloudfront-invalidate
 
 custom:
   # webSiteName: s3-static-site-hosting.com
@@ -35,6 +74,11 @@ custom:
     # アップロードするローカルのディレクトリを指定
     - bucketName: hogehogehoges3bucket2023
       localDir: static
+  # DistributionIdはOutput表示後（デプロイ後）に取得する
+  # cloudfrontInvalidate:
+  #   - distributionIdKey: DistributionId
+  #     items:
+  #       - "/*"
 
 functions:
   clearCache:
@@ -66,25 +110,118 @@ functions:
 # s3:ObjectTagging:* オブジェクトにタグ追加・削除
 # s3:ObjectACL:PUT オブジェクトのACL設定が変更
 
+# CloudFront Functions+S3でBasic認証を実装する
+# Basic認証とは？
+# ・webサイトにアクセスした際にユーザー名とパスワードの入力を促す認証方式
+# Basic認証の流れ
+# ・Basic認証をさせたいサーバーはユーザーの初回アクセスに以下のレスポンスヘッダを追加する
+# www-authenticate: Basic key="please enter your username and password"
+# ・ユーザー名とパスワードの入力をしたら、クライアントは以下のリクエストヘッダを追加する
+# authorization: Basic ${user:password}
+# ※"user:password"をbase64エンコード
+# ・base64エンコードされた文字列はコマンドラインで以下を叩くと得られる
+# echo -n user:pass | base64
+
 resources:
   Resources:
+    # CloudFrontDistribution and CloudFront Functions with Basic Auth
+    # CloudFrontFunction:
+    #   Type: AWS::CloudFront::Function
+    #   Properties:
+    #     Name:
+    #       Fn::Sub:
+    #         - basic-auth-function
+    #     FunctionConfig:
+    #       Comment:
+    #         Fn::Sub:
+    #           - basic-auth-function
+    #       Runtime: cloudfront-js-1.0
+    #     AutoPublish: true
+    #     FunctionCode: |
+    #       function hoge() {}
+
+    # CloudFrontDistribution:
+    #   Type: AWS::CloudFront::Distribution
+    #   Properties:
+    #     DistributionConfig:
+
+          # DefaultCacheBehavior:
+          #   TargetOriginId: hogehogehoges3bucket2023
+          #   ViewerProtocolPolicy: redirect-to-https
+
+            # キャッシュ有効期限
+            # DefaultTTL: 0
+            # MaxTTL: 0
+            # MinTTL: 0
+
+            # CloudFrontへのリクエスト時にBasic認証を行う
+            # FunctionAssociations:
+            #   - EventType: viewer-request
+            #     FunctionARN:
+            #       Fn::GetAtt:
+            #         - CloudFrontFunction
+            #         - FunctionARN
+
+          # リクエスト転送先オリジンにs3バケットを指定
+          # Origins:
+          #   - Id: hogehogehoges3bucket2023
+
+              # S3のドメイン名を関数で取得
+              # DomainName: hogehogehoges3bucket2023
+              #   Fn::GetAtt:
+              #     - Bucket
+              #     - RegionalDomainName
+              # S3OriginConfig:
+              #   OriginAccessIdentity:
+              #     Fn::Sub:
+              #       - origin-access-identity/cloudfront/${OriginAccessIdentity}
+          # ディストリビューションを有効化
+          # Enabled: true
+
+          # 世界中のCloudFrontエッジロケーションは各地域によって料金が異なる
+          # 価格オプション（料金クラス）はAll, 200, 100の3種類があり、
+          # 日本のエッジロケーションを使用するにはPriceClass200の選択が必要
+          # PriceClass: PriceClass_200
+
+          # 独自ドメインを利用したい場合に調整する
+          # ViewerCertificate:
+          #   CloudFrontDefaultCertificate: true
+
+          # デフォルトで表示したいファイルを指定する
+          # DefaultRootObject: index.html
+
+          # カスタムエラーレスポンスを生成できる
+          # CustomErrorResponses:
+          #   - ErrorCode: 403
+          #     ResponsePagePath: /
+          #     ResponseCode: 200
+          #     ErrorCachingMinTTL: 0
+
+    # OriginAccessIdentity:
+    #   Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    #   Properties:
+    #     CloudFrontOriginAccessIdentityConfig:
+    #       Comment:
+    #         Fn::Sub:
+    #           - "hogehogehoges3bucket2023"
+
     MyS3Bucket:
       Type: AWS::S3::Bucket
       Properties:
         BucketName: hogehogehoges3bucket2023
 
         # パブリックアクセスでバケットを作成する場合
-        # AccessControl: PublicRead
+        AccessControl: PublicRead
 
         # パブリックアクセスをすべてブロックにする
-        AccessControl: Private
+        # AccessControl: Private
 
         # ブロックパブリックアクセスを個別に設定する場合
-        PublicAccessBlockConfiguration:
-          BlockPublicAcls: true
-          BlockPublicPolicy: true
-          IgnorePublicAcls: true
-          RestrictPublicBuckets: true
+        # PublicAccessBlockConfiguration:
+        #   BlockPublicAcls: true
+        #   BlockPublicPolicy: true
+        #   IgnorePublicAcls: true
+        #   RestrictPublicBuckets: true
 
         # バージョニングの有効化
         VersioningConfiguration:
@@ -118,10 +255,20 @@ resources:
             - Sid: PublicReadGetPutObject
               Effect: Allow
               Principal: "*"
+                # OAIを使用してアクセスする場合
+                # AWS:
+                #   Fn::Sub: arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${OriginAccessIdentity}
               Action:
                 - "s3:GetObject"
                 # - "s3:PutObject"
               Resource: arn:aws:s3:::hogehogehoges3bucket2023/*
+
+# Outputs:
+#   DomainName:
+#     Value:
+#       Fn::GetAtt:
+#         - Distribution
+#         - DomainName
 
 # S3でwebサイトを静的ホスティングするには？
 # 最低限の設定だと、以下のようにする
